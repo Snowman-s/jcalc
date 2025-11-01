@@ -1,0 +1,3 @@
+[submodule "ore-jdwp"]
+	path = ore-jdwp
+	url = https://github.com/Snowman-s/ore-jdwp
