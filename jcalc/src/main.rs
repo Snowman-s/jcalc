@@ -263,16 +263,11 @@ async fn handle_send(
   h.send_and_receive(&JDWPPacketDataFromDebugger::EventRequestSet(
     EventRequestSetSend {
       suspend_policy: 2,
-      modifiers: (
-        1,
-        vec![EventRequestSetSendModifiers {
-          mod_kind: EventRequestSetSendModifiersModKind::_12(
-            EventRequestSetSendModifiersModKind12 {
-              source_name_pattern: source_file.as_str().into(),
-            },
-          ),
-        }],
-      ),
+      modifiers: vec![EventRequestSetSendModifiers {
+        mod_kind: EventRequestSetSendModifiersModKind::_12(EventRequestSetSendModifiersModKind12 {
+          source_name_pattern: source_file.as_str().into(),
+        }),
+      }],
       event_kind: 8, // PrepareClass
     },
   ))
@@ -290,7 +285,7 @@ async fn handle_send(
   loop {
     let packet = h.channel_rx.recv().await.unwrap();
     if let JDWPPacketDataFromDebuggee::EventComposite(event_composite) = packet {
-      if event_composite.events.1.iter().any(|event| {
+      if event_composite.events.iter().any(|event| {
         matches!(
           event.event_kind,
           EventCompositeReceiveEventsEventKind::_CLASSPREPARE(_)
@@ -305,7 +300,7 @@ async fn handle_send(
   // 現在のスレッドIDを取得する
   print_what_is_doing("Find current thread");
   let JDWPPacketDataFromDebuggee::VirtualMachineAllThreads(VirtualMachineAllThreadsReceive {
-    threads: (_, threads),
+    threads,
   }) = h
     .send_and_receive(&JDWPPacketDataFromDebugger::VirtualMachineAllThreads(()))
     .await?
@@ -370,17 +365,14 @@ async fn handle_send(
   print_what_is_doing("Get Long.TYPE value");
   let class_long = {
     let JDWPPacketDataFromDebuggee::ReferenceTypeGetValues(ReferenceTypeGetValuesReceive {
-      values: (_, values),
+      values,
     }) = h
       .send_and_receive(&JDWPPacketDataFromDebugger::ReferenceTypeGetValues(
         ReferenceTypeGetValuesSend {
           ref_type: clazz_long.clone(),
-          fields: (
-            1,
-            vec![ReferenceTypeGetValuesSendFields {
-              field_id: field_long_type.clone(),
-            }],
-          ),
+          fields: vec![ReferenceTypeGetValuesSendFields {
+            field_id: field_long_type.clone(),
+          }],
         },
       ))
       .await?
@@ -681,7 +673,7 @@ impl SendHandler {
     loop {
       match self.channel_rx.recv().await {
         Some(JDWPPacketDataFromDebuggee::EventComposite(event_composite)) => {
-          if event_composite.events.1.iter().any(|event| {
+          if event_composite.events.iter().any(|event| {
             matches!(
               event.event_kind,
               EventCompositeReceiveEventsEventKind::_VMDEATH(_)
@@ -691,6 +683,7 @@ impl SendHandler {
           }
         }
         Some(response_packet) => {
+          println!("! {:?} -> {:?}", payload_clone, response_packet);
           return Ok(response_packet);
         }
         None => {
@@ -732,9 +725,7 @@ impl SendHandler {
 
   async fn find_class(&mut self, signature: &str) -> Result<JDWPIDLengthEqReferenceType, String> {
     let JDWPPacketDataFromDebuggee::VirtualMachineClassesBySignature(
-      VirtualMachineClassesBySignatureReceive {
-        classes: (_, classes),
-      },
+      VirtualMachineClassesBySignatureReceive { classes },
     ) = self
       .send_and_receive(
         &JDWPPacketDataFromDebugger::VirtualMachineClassesBySignature(
@@ -757,7 +748,7 @@ impl SendHandler {
     signature: &str,
   ) -> Result<JDWPIDLengthEqMethod, String> {
     let JDWPPacketDataFromDebuggee::ReferenceTypeMethods(ReferenceTypeMethodsReceive {
-      declared: (_, methods),
+      declared: methods,
     }) = self
       .send_and_receive(&JDWPPacketDataFromDebugger::ReferenceTypeMethods(
         ReferenceTypeMethodsSend {
@@ -783,7 +774,7 @@ impl SendHandler {
     signature: &str,
   ) -> Result<JDWPIDLengthEqField, String> {
     let JDWPPacketDataFromDebuggee::ReferenceTypeFields(ReferenceTypeFieldsReceive {
-      declared: (_, fields),
+      declared: fields,
     }) = self
       .send_and_receive(&JDWPPacketDataFromDebugger::ReferenceTypeFields(
         ReferenceTypeFieldsSend {
@@ -818,13 +809,10 @@ impl SendHandler {
           clazz: clazz.clone(),
           thread: thread.clone(),
           method_id: method_id.clone(),
-          arguments: (
-            args.len() as i32,
-            args
-              .iter()
-              .map(|arg| ClassTypeInvokeMethodSendArguments { arg: arg.clone() })
-              .collect(),
-          ),
+          arguments: args
+            .iter()
+            .map(|arg| ClassTypeInvokeMethodSendArguments { arg: arg.clone() })
+            .collect(),
           options: 0,
         },
       ))
@@ -860,13 +848,10 @@ impl SendHandler {
           clazz: clazz.clone(),
           thread: thread.clone(),
           method_id: method_id.clone(),
-          arguments: (
-            args.len() as i32,
-            args
-              .iter()
-              .map(|arg| ObjectReferenceInvokeMethodSendArguments { arg: arg.clone() })
-              .collect(),
-          ),
+          arguments: args
+            .iter()
+            .map(|arg| ObjectReferenceInvokeMethodSendArguments { arg: arg.clone() })
+            .collect(),
           options: 0,
         },
       ))
@@ -932,13 +917,10 @@ impl SendHandler {
         ArrayReferenceSetValuesSend {
           array_object: new_array_untagged.clone(),
           first_index: 0,
-          values: (
-            values.len() as i32,
-            values
-              .into_iter()
-              .map(|v| ArrayReferenceSetValuesSendValues { value: v })
-              .collect(),
-          ),
+          values: values
+            .into_iter()
+            .map(|v| ArrayReferenceSetValuesSendValues { value: v })
+            .collect(),
         },
       ))
       .await?;
@@ -968,7 +950,7 @@ impl SendHandler {
           clazz: th.clone(),
           thread: thread.clone(),
           method_id: get_message_method.clone(),
-          arguments: (0, vec![]),
+          arguments: vec![],
           options: 0,
         },
       ))
