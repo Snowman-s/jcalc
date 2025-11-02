@@ -309,10 +309,7 @@ async fn handle_send(
   };
   let current_thread = threads.first().expect("No thread found").thread.clone();
   print_done();
-  print_info(&format!(
-    "Current thread: {:?}",
-    current_thread.to_value()[0]
-  ));
+  print_info(&format!("Current thread id: {}", current_thread));
 
   // Class の id を問い合わせる
   print_what_is_doing("Find java.lang.Class");
@@ -860,17 +857,18 @@ impl SendHandler {
       panic!("Failed to invoke method")
     };
 
-    if let PrettyIOKind::Int(value) = exception.to_value()[1] {
-      if value != 0 {
-        let exception = JDWPIDLengthEqObject::from_value(&vec![PrettyIOKind::Int(value)])
-          .ok_or("Cannot convert")?
-          .0;
-
-        return Err(format!(
-          "Method invocation threw an exception {}",
-          self.get_exception_string(&exception, thread).await?,
-        ));
-      }
+    if exception.object_id != 0 {
+      return Err(format!(
+        "Method invocation threw an exception {}",
+        self
+          .get_exception_string(
+            &JDWPIDLengthEqObject {
+              id: exception.object_id
+            },
+            thread
+          )
+          .await?,
+      ));
     }
 
     match return_value {
@@ -904,12 +902,9 @@ impl SendHandler {
     else {
       panic!("Failed to create array")
     };
-    let PrettyIOKind::Int(object_id) = new_array.to_value()[1].clone() else {
-      return Err("Cannot convert".into());
+    let new_array_untagged = JDWPIDLengthEqObject {
+      id: new_array.object_id,
     };
-    let new_array_untagged = JDWPIDLengthEqObject::from_value(&vec![PrettyIOKind::Int(object_id)])
-      .ok_or("Cannot convert")?
-      .0;
 
     // 配列への値の設定
     self
@@ -1049,12 +1044,7 @@ impl SendHandler {
             parse::Expression::Binary(op) => {
               let b = stack.pop().expect("Stack underflow");
               let a = stack.pop().expect("Stack underflow");
-              print_ln_what_is_doing(&format!(
-                "Calc binary expression: {:?} {:?} {:?}",
-                a.to_value()[0],
-                op,
-                b.to_value()[0]
-              ));
+              print_ln_what_is_doing(&format!("Calc binary expression: {} {:?} {}", a, op, b));
               let op_method_instance = {
                 match op {
                   parse::Operator::Add => add_method_instance.clone(),
