@@ -100,13 +100,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
   }
 
   let payloads: Arc<Mutex<Vec<JDWPPacketDataFromDebugger>>> = Arc::new(Mutex::new(Vec::new()));
-  let context = Arc::new(Mutex::new(JDWPContext {
-    field_id_size: Option::None,
-    method_id_size: Option::None,
-    object_id_size: Option::None,
-    reference_type_id_size: Option::None,
-    frame_id_size: Option::None,
-  }));
+  let context = Arc::new(Mutex::new(JDWPContext { id_sizes: None }));
 
   // --- Handshake ---
   let handshake = b"JDWP-Handshake";
@@ -184,7 +178,7 @@ async fn handle_receive(
 
     // FIXME: まだContextが取得できておらず、エラーでもあるなら、捨てる
     {
-      if context.lock().await.field_id_size.is_none() && packet_and_id.is_none() {
+      if context.lock().await.id_sizes.is_none() && packet_and_id.is_none() {
         continue;
       }
     }
