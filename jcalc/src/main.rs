@@ -178,12 +178,12 @@ async fn handle_receive(
 
     // FIXME: まだContextが取得できておらず、エラーでもあるなら、捨てる
     {
-      if context.lock().await.id_sizes.is_none() && packet_and_id.is_none() {
+      if context.lock().await.id_sizes.is_none() && packet_and_id.is_err() {
         continue;
       }
     }
 
-    if packet_and_id.is_none() {
+    if packet_and_id.is_err() {
       eprint!("\n\nReceived packet: ");
       if n > 256 {
         eprint!("(too long to display) ");
