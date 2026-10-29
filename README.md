@@ -18,7 +18,7 @@
 
 1. ユーザーが `1 + 1` を入力する  
 2. アプリがローカルホスト上の JVM にデバッグ接続  
-3. JVM に `BigInteger.valueOf(1).add(BigInteger.valueOf(1))` の実行を「お願い」する (※)
+3. JVM に `new BigInteger("1").add(new BigInteger("1"))` の実行を「お願い」する (※)
 4. JVM が結果 `2` を返す（慈悲深く）  
 
 こうしてあなたの手元に戻る「2」は、  
@@ -57,10 +57,10 @@ cd jcalc
 ```terminal
 $cd java
 $javac Main.java
-$java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=*:5005 Main
+$java -agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=5005 Main
 ```
 
-【重要！】**ソースファイルは Main.java というファイル名でなければなりません。**
+`main` メソッドを持つクラスなら、Main 以外でも構いません。
 
 JVM は**停止状態 (suspend=y)** で待機してください。  
 この神聖な儀式を経ずに計算を始めてはいけません。
@@ -76,16 +76,11 @@ $ cargo run -- -v
 
 ### 3. 計算を依頼する
 ```
-> 1 + 1
-* Constructing Long from 1..OK!
-* Creating JVM array for Long to invoke BigInteger.valueOf..OK!
-* Invoking BigInteger.valueOf..OK!
-* Constructing Long from 1..OK!
-* Creating JVM array for Long to invoke BigInteger.valueOf..OK!
-* Invoking BigInteger.valueOf..OK!
-* Calc binary expression: Int(36) Add Int(36)..
-* Creating JVM array for BigInteger operation Add..OK!
-* Invoke: JDWPIDLengthEqObject { id: 20 }..OK!
+jcalc> 1 + 1
+* Invoking new BigInteger("1")..OK!
+* Invoking new BigInteger("1")..OK!
+* Calc binary expression: 0x8 Add 0xA..
+* Invoke: Add..OK!
 * Result obtained. call toString()..OK!
 * Get string value..OK!
 = 2
@@ -106,7 +101,8 @@ $ cargo run -- -v
 
 ## サポートされている演算
 
-四則演算と括弧がサポートされています。
+四則演算、単項マイナス、括弧がサポートされています。  
+数値の大きさに上限はありません (JVM の BigInteger が許す限り)。
 
 例: 
 ```
@@ -119,15 +115,10 @@ jcalc> (10 + 30) * 3 / 5
 (※) 1 + 1 のとき、実際には以下が発行されます。
 
 ```java
-Class bigIntClass = Class.forName("java.math.BigInteger");
-Method bigIntValueOf = bigIntClass.getMethod("valueOf", new Class[] { Long.TYPE });
-Method bigIntAdd = bigIntClass.getMethod("add", new Class[] { bigIntClass });
-Method bigIntToString = bigIntClass.getMethod("toString", (Class[]) null);
+BigInteger a = new BigInteger("1");
+BigInteger b = new BigInteger("1");
 
-Object a = bigIntValueOf.invoke(null, new Object[] { Long.valueOf(1) });
-Object b = bigIntValueOf.invoke(null, new Object[] { Long.valueOf(1) });
+BigInteger sum = a.add(b);
 
-Object sum = bigIntAdd.invoke(a, new Object[] { b });
-
-Object answer = bigIntToString.invoke(sum, (Object[]) null); // 結果
+String answer = sum.toString(); // 結果
 ```
